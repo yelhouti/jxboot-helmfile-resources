@@ -1,0 +1,49 @@
+{{- if and (or (eq "lighthouse" .Values.jxRequirements.webhook) (eq "prow" .Values.jxRequirements.webhook)) .Values.httpRoute.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hook
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.name }}
+      namespace: {{ .Release.Namespace }}
+      sectionName: {{ if .Values.jxRequirements.ingress.tls.enabled }}https{{ else }}http{{ end }}
+  hostnames:
+{{- if .Values.hook.ingress.customHost }}
+    - {{ .Values.hook.ingress.customHost }}
+{{- else if .Values.ingress.customHosts.hook }}
+    - {{ .Values.ingress.customHosts.hook }}
+{{- else if .Values.jxRequirements.ingress.domain }}
+    - {{ .Values.ingress.prefix.hook | default .Values.hook.ingress.prefix }}{{ .Values.jxRequirements.ingress.namespaceSubDomain }}{{ .Values.jxRequirements.ingress.domain }}
+{{- end }}
+  rules:
+    - backendRefs:
+        - name: hook
+          port: 80
+{{- if .Values.jxRequirements.ingress.tls.enabled }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hook-redirect
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.name }}
+      namespace: {{ .Release.Namespace }}
+      sectionName: http
+  hostnames:
+{{- if .Values.hook.ingress.customHost }}
+    - {{ .Values.hook.ingress.customHost }}
+{{- else if .Values.ingress.customHosts.hook }}
+    - {{ .Values.ingress.customHosts.hook }}
+{{- else if .Values.jxRequirements.ingress.domain }}
+    - {{ .Values.ingress.prefix.hook | default .Values.hook.ingress.prefix }}{{ .Values.jxRequirements.ingress.namespaceSubDomain }}{{ .Values.jxRequirements.ingress.domain }}
+{{- end }}
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+{{- end }}
+{{- end }}

@@ -1,0 +1,49 @@
+{{- if and (eq "nexus" .Values.jxRequirements.repository) .Values.httpRoute.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: nexus
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.name }}
+      namespace: {{ .Release.Namespace }}
+      sectionName: {{ if .Values.jxRequirements.ingress.tls.enabled }}https{{ else }}http{{ end }}
+  hostnames:
+{{- if .Values.nexus.ingress.customHost }}
+    - {{ .Values.nexus.ingress.customHost }}
+{{- else if .Values.ingress.customHosts.nexus }}
+    - {{ .Values.ingress.customHosts.nexus }}
+{{- else if .Values.jxRequirements.ingress.domain }}
+    - {{ .Values.ingress.prefix.nexus | default .Values.nexus.ingress.prefix }}{{ .Values.jxRequirements.ingress.namespaceSubDomain }}{{ .Values.jxRequirements.ingress.domain }}
+{{- end }}
+  rules:
+    - backendRefs:
+        - name: nexus
+          port: 80
+{{- if .Values.jxRequirements.ingress.tls.enabled }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: nexus-redirect
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.name }}
+      namespace: {{ .Release.Namespace }}
+      sectionName: http
+  hostnames:
+{{- if .Values.nexus.ingress.customHost }}
+    - {{ .Values.nexus.ingress.customHost }}
+{{- else if .Values.ingress.customHosts.nexus }}
+    - {{ .Values.ingress.customHosts.nexus }}
+{{- else if .Values.jxRequirements.ingress.domain }}
+    - {{ .Values.ingress.prefix.nexus | default .Values.nexus.ingress.prefix }}{{ .Values.jxRequirements.ingress.namespaceSubDomain }}{{ .Values.jxRequirements.ingress.domain }}
+{{- end }}
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+{{- end }}
+{{- end }}
